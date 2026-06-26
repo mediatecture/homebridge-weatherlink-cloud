@@ -25,10 +25,9 @@
 		"required": true
 	  },
 	  "stationId": {
-		"title": "Station ID",
-		"description": "Numeric station ID from GET /v2/stations.",
-		"type": "integer",
-		"required": true
+		"title": "Station ID (optional)",
+		"description": "Leave blank to auto-discover from your account. Only needed if you have more than one station and want to pin a specific one.",
+		"type": "integer"
 	  },
 	  "pollMinutes": {
 		"title": "Poll interval (minutes)",
@@ -39,7 +38,7 @@
 	  },
 	  "manufacturer": {
 		"title": "Manufacturer",
-		"description": "Shown in the Home app accessory tails. Defaults to Davis Instruments.",
+		"description": "Shown in the Home app accessory details. Defaults to Davis Instruments.",
 		"type": "string",
 		"default": "Davis Instruments"
 	  },
