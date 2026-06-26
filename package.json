@@ -1,7 +1,7 @@
 {
   "name": "homebridge-weatherlink-cloud",
   "displayName": "WeatherLink Cloud",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Exposes Davis WeatherLink (v2 cloud API) weather data to HomeKit via Homebridge.",
   "main": "index.js",
   "license": "MIT",
