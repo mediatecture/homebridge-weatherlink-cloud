@@ -36,6 +36,18 @@
 		"type": "integer",
 		"default": 15,
 		"minimum": 1
+	  },
+	  "manufacturer": {
+		"title": "Manufacturer",
+		"description": "Shown in the Home app accessory tails. Defaults to Davis Instruments.",
+		"type": "string",
+		"default": "Davis Instruments"
+	  },
+	  "model": {
+		"title": "Model",
+		"description": "Shown in the Home app accessory details. Defaults to Vantage Vue.",
+		"type": "string",
+		"default": "Vantage Vue"
 	  }
 	}
   }
