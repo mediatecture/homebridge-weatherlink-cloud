@@ -1,0 +1,42 @@
+{
+  "pluginAlias": "WeatherLinkCloud",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Pulls current conditions from the WeatherLink v2 cloud API and exposes them to HomeKit. Get your API Key and Secret from the lower-left of your account page at weatherlink.com.",
+  "schema": {
+	"type": "object",
+	"properties": {
+	  "name": {
+		"title": "Name",
+		"type": "string",
+		"default": "WeatherLink",
+		"required": true
+	  },
+	  "apiKey": {
+		"title": "API Key",
+		"description": "The v2 API key (sent as the api-key query parameter).",
+		"type": "string",
+		"required": true
+	  },
+	  "apiSecret": {
+		"title": "API Secret",
+		"description": "The v2 API secret (sent as the X-Api-Secret header).",
+		"type": "string",
+		"required": true
+	  },
+	  "stationId": {
+		"title": "Station ID",
+		"description": "Numeric station ID from GET /v2/stations.",
+		"type": "integer",
+		"required": true
+	  },
+	  "pollMinutes": {
+		"title": "Poll interval (minutes)",
+		"description": "Match your weatherlink.com tier: ~15 (free) or ~5 (Pro). Polling faster than the data refreshes just wastes API calls.",
+		"type": "integer",
+		"default": 15,
+		"minimum": 1
+	  }
+	}
+  }
+}

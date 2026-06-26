@@ -1,0 +1,31 @@
+{
+  "name": "homebridge-weatherlink-cloud",
+  "displayName": "WeatherLink Cloud",
+  "version": "0.1.0",
+  "description": "Exposes Davis WeatherLink (v2 cloud API) weather data to HomeKit via Homebridge.",
+  "main": "index.js",
+  "license": "MIT",
+  "author": "YOUR NAME",
+  "repository": {
+	"type": "git",
+	"url": "git+https://github.com/mediatecture/homebridge-weatherlink-cloud.git"
+  },
+  "bugs": {
+	"url": "https://github.com/mediatecture/homebridge-weatherlink-cloud/issues"
+  },
+  "engines": {
+	"homebridge": "^1.6.0 || ^2.0.0",
+	"node": "^18 || ^20 || ^22"
+  },
+  "keywords": [
+	"homebridge-plugin",
+	"weatherlink",
+	"davis",
+	"vantage-vue",
+	"weather"
+  ],
+  "files": [
+	"index.js",
+	"config.schema.json"
+  ]
+}
