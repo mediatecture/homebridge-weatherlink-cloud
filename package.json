@@ -5,7 +5,7 @@
   "description": "Exposes Davis WeatherLink (v2 cloud API) weather data to HomeKit via Homebridge.",
   "main": "index.js",
   "license": "MIT",
-  "author": "YOUR NAME",
+  "author": "Niels Wouters",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mediatecture/homebridge-weatherlink-cloud.git"
@@ -15,7 +15,7 @@
   },
   "engines": {
     "homebridge": "^1.6.0 || ^2.0.0",
-    "node": "^18 || ^20 || ^22"
+    "node": "^18 || ^20 || ^22 || ^24"
   },
   "keywords": [
     "homebridge-plugin",

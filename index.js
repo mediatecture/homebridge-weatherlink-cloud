@@ -1,24 +1,3 @@
-// homebridge-weatherlink-cloud  —  starter skeleton
-//
-// A Homebridge dynamic platform plugin that polls the WeatherLink v2 cloud
-// API and exposes your Vantage Vue readings to HomeKit.
-//
-// Pairs with a minimal package.json (see notes at bottom of this file).
-//
-// config.json example:
-// {
-//   "platforms": [
-//     {
-//       "platform": "WeatherLinkCloud",
-//       "name": "WeatherLink",
-//       "apiKey": "YOUR_V2_API_KEY",
-//       "apiSecret": "YOUR_V2_API_SECRET",
-//       "stationId": 123456,
-//       "pollMinutes": 15
-//     }
-//   ]
-// }
-
 'use strict';
 
 const https = require('https');
@@ -80,6 +59,10 @@ class WeatherLinkCloudPlatform {
 	this.tempAcc = this.getOrCreate('outTemp', 'Outdoor Temperature', Service.TemperatureSensor);
 	this.humAcc  = this.getOrCreate('outHum',  'Outdoor Humidity',    Service.HumiditySensor);
 
+	// Indoor readings come from the console's own barometer/inside sensor block.
+	this.tempInAcc = this.getOrCreate('inTemp', 'Indoor Temperature', Service.TemperatureSensor);
+	this.humInAcc  = this.getOrCreate('inHum',  'Indoor Humidity',    Service.HumiditySensor);
+
 	// Wind / rain / pressure / UV have NO native HomeKit service.
 	// Options to surface them:
 	//   - Eve custom characteristics (shown in the Eve app, ignored by Home app)
@@ -133,12 +116,14 @@ class WeatherLinkCloudPlatform {
 	// against your own dump — they live in °F and %.
 
 	const sensors = (data && data.sensors) || [];
-	let tempF, hum;
+	let tempF, hum, tempInF, humIn;
 
 	for (const s of sensors) {
 	  const d = (s.data && s.data[0]) || {};
-	  if (typeof d.temp === 'number') tempF = d.temp;
-	  if (typeof d.hum === 'number') hum = d.hum;
+	  if (typeof d.temp === 'number') tempF = d.temp;          // outdoor temp, °F
+	  if (typeof d.hum === 'number') hum = d.hum;              // outdoor RH, %
+	  if (typeof d.temp_in === 'number') tempInF = d.temp_in;  // indoor temp, °F
+	  if (typeof d.hum_in === 'number') humIn = d.hum_in;      // indoor RH, %
 	  // Other fields you'll likely find here once you dump the payload:
 	  //   d.wind_speed_last, d.wind_dir_last, d.rainfall_daily,
 	  //   d.bar_sea_level, d.uv_index, d.solar_rad ...
@@ -155,21 +140,16 @@ class WeatherLinkCloudPlatform {
 		.getService(Service.HumiditySensor)
 		.updateCharacteristic(Characteristic.CurrentRelativeHumidity, hum);
 	}
+	if (typeof tempInF === 'number') {
+	  const tempInC = ((tempInF - 32) * 5) / 9;
+	  this.tempInAcc
+		.getService(Service.TemperatureSensor)
+		.updateCharacteristic(Characteristic.CurrentTemperature, tempInC);
+	}
+	if (typeof humIn === 'number') {
+	  this.humInAcc
+		.getService(Service.HumiditySensor)
+		.updateCharacteristic(Characteristic.CurrentRelativeHumidity, humIn);
+	}
   }
 }
-
-// --- Minimal package.json to sit beside this file -------------------------
-// {
-//   "name": "homebridge-weatherlink-cloud",
-//   "version": "0.1.0",
-//   "main": "index.js",
-//   "engines": { "homebridge": ">=1.6.0", "node": ">=18" },
-//   "keywords": ["homebridge-plugin"]
-// }
-//
-// Dev loop:
-//   1. mkdir homebridge-weatherlink-cloud && cd it; add index.js + package.json
-//   2. npm install -g . (or `npm link`) into your Homebridge install
-//   3. add the platform block to Homebridge config.json
-//   4. restart Homebridge, watch the logs, dump the payload, map fields
-// --------------------------------------------------------------------------
