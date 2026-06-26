@@ -1,0 +1,81 @@
+<!-- Custom settings UI for homebridge-weatherlink-cloud.
+	 No <html>/<head>/<body> tags — the Homebridge UI injects those, and
+	 injects Bootstrap 5 CSS, so the btn/alert classes below are styled. -->
+
+<div class="card card-body mb-3">
+  <p class="mb-2">
+	Enter your API Key and Secret below, then look up your Station ID
+	automatically. Leaving Station ID blank also works — the plugin discovers
+	it at startup — but this lets you see and confirm the value.
+  </p>
+  <button type="button" id="fetchBtn" class="btn btn-primary">
+	Fetch Station ID from account
+  </button>
+  <div id="result" class="mt-3"></div>
+</div>
+
+<script>
+  (async () => {
+	// Render the normal config.schema.json form beneath our custom card.
+	homebridge.showSchemaForm();
+
+	const fetchBtn = document.getElementById('fetchBtn');
+	const result = document.getElementById('result');
+
+	// Read the single platform config block (or an empty object if none yet).
+	async function getConfig() {
+	  const blocks = await homebridge.getPluginConfig();
+	  return blocks[0] || {};
+	}
+
+	// Write a station ID back into the config and persist it. updatePluginConfig
+	// refreshes the visible form field; savePluginConfig writes config.json.
+	async function setStationId(station) {
+	  const config = await getConfig();
+	  config.stationId = station.id;
+	  await homebridge.updatePluginConfig([config]);
+	  await homebridge.savePluginConfig();
+	  result.innerHTML =
+		`<div class="alert alert-success mb-0">` +
+		`Station ID set to <strong>${station.id}</strong> ` +
+		`(&ldquo;${station.name}&rdquo;) and saved.</div>`;
+	  homebridge.toast.success(`Station ID ${station.id} written to config.`);
+	}
+
+	function renderPicker(stations) {
+	  result.innerHTML =
+		'<div class="mb-2">Multiple stations found — choose one:</div>';
+	  stations.forEach((s) => {
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = 'btn btn-outline-secondary btn-sm d-block mb-1';
+		b.textContent = `${s.name}  (ID ${s.id})`;
+		b.addEventListener('click', () => setStationId(s));
+		result.appendChild(b);
+	  });
+	}
+
+	fetchBtn.addEventListener('click', async () => {
+	  result.innerHTML = '';
+	  homebridge.showSpinner();
+	  try {
+		const { apiKey, apiSecret } = await getConfig();
+		const stations = await homebridge.request('/stations', { apiKey, apiSecret });
+
+		if (!stations.length) {
+		  result.innerHTML =
+			'<div class="alert alert-warning mb-0">No stations found on this account.</div>';
+		} else if (stations.length === 1) {
+		  await setStationId(stations[0]);
+		} else {
+		  renderPicker(stations);
+		}
+	  } catch (e) {
+		// Errors thrown in server.js surface here with their message.
+		homebridge.toast.error(e.message || 'Lookup failed', 'WeatherLink');
+	  } finally {
+		homebridge.hideSpinner();
+	  }
+	});
+  })();
+</script>
