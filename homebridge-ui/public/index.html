@@ -22,24 +22,34 @@
 	const fetchBtn = document.getElementById('fetchBtn');
 	const result = document.getElementById('result');
 
-	// Read the single platform config block (or an empty object if none yet).
+	// Read the single platform config block as a JSON-safe plain object. The
+	// round-trip strips anything non-cloneable (the cause of DataCloneError when
+	// the object is later sent over the UI's postMessage bridge).
 	async function getConfig() {
 	  const blocks = await homebridge.getPluginConfig();
-	  return blocks[0] || {};
+	  return blocks[0] ? JSON.parse(JSON.stringify(blocks[0])) : {};
 	}
 
-	// Write a station ID back into the config and persist it. updatePluginConfig
-	// refreshes the visible form field; savePluginConfig writes config.json.
+	// Write a station ID back into the config and persist it. Everything handed
+	// to updatePluginConfig/savePluginConfig must be plain, cloneable data.
 	async function setStationId(station) {
 	  const config = await getConfig();
-	  config.stationId = station.id;
+	  config.stationId = Number(station.id); // primitive, never an object/Promise
 	  await homebridge.updatePluginConfig([config]);
-	  await homebridge.savePluginConfig();
+
 	  result.innerHTML =
 		`<div class="alert alert-success mb-0">` +
-		`Station ID set to <strong>${station.id}</strong> ` +
-		`(&ldquo;${station.name}&rdquo;) and saved.</div>`;
-	  homebridge.toast.success(`Station ID ${station.id} written to config.`);
+		`Station ID set to <strong>${Number(station.id)}</strong> ` +
+		`(&ldquo;${station.name}&rdquo;).</div>`;
+	  homebridge.toast.success(`Station ID ${Number(station.id)} written to config.`);
+
+	  // Persist separately so a hiccup here can't leave the field unset; the
+	  // value is already in the form via updatePluginConfig above.
+	  try {
+		await homebridge.savePluginConfig();
+	  } catch (e) {
+		homebridge.toast.info('Set in the form — click Save to write it to disk.', 'WeatherLink');
+	  }
 	}
 
 	function renderPicker(stations) {
@@ -60,7 +70,10 @@
 	  homebridge.showSpinner();
 	  try {
 		const { apiKey, apiSecret } = await getConfig();
-		const stations = await homebridge.request('/stations', { apiKey, apiSecret });
+		const stations = await homebridge.request('/stations', {
+		  apiKey: String(apiKey || ''),
+		  apiSecret: String(apiSecret || ''),
+		});
 
 		if (!stations.length) {
 		  result.innerHTML =
