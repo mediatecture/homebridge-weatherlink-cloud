@@ -70,7 +70,7 @@
 		"default": true
 	  },
 	  "enableFeelsLike": {
-		"title": "Feels like (THW index)",
+		"title": "Outdoor THW index",
 		"description": "Davis temperature-humidity-wind 'feels like' value, shown as a temperature sensor.",
 		"type": "boolean",
 		"default": true
