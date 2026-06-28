@@ -2,6 +2,7 @@
   "pluginAlias": "WeatherLinkCloud",
   "pluginType": "platform",
   "singular": true,
+  "customUi": true,
   "headerDisplay": "Pulls current conditions from the WeatherLink v2 cloud API and exposes them to HomeKit. Get your API Key and Secret from the lower-left of your account page at weatherlink.com.",
   "schema": {
 	"type": "object",
@@ -47,6 +48,32 @@
 		"description": "Shown in the Home app accessory details. Defaults to Vantage Vue.",
 		"type": "string",
 		"default": "Vantage Vue"
+	  },
+	  "enableOutdoorTemp": {
+		"title": "Outdoor temperature",
+		"type": "boolean",
+		"default": true
+	  },
+	  "enableOutdoorHumidity": {
+		"title": "Outdoor humidity",
+		"type": "boolean",
+		"default": true
+	  },
+	  "enableIndoorTemp": {
+		"title": "Indoor temperature",
+		"type": "boolean",
+		"default": true
+	  },
+	  "enableIndoorHumidity": {
+		"title": "Indoor humidity",
+		"type": "boolean",
+		"default": true
+	  },
+	  "enableFeelsLike": {
+		"title": "Feels like (THW index)",
+		"description": "Davis temperature-humidity-wind 'feels like' value, shown as a temperature sensor.",
+		"type": "boolean",
+		"default": true
 	  }
 	}
   }

@@ -6,6 +6,18 @@ const PLUGIN_NAME = 'homebridge-weatherlink-cloud';
 const PLATFORM_NAME = 'WeatherLinkCloud';
 const PLUGIN_VERSION = require('./package.json').version;
 
+// One row per exposable sensor. `kind` picks the HomeKit service + unit handling
+// ('temp' = TemperatureSensor with °F->°C, 'humidity' = HumiditySensor with %).
+// `field` is the key in the v2 /current payload. `flag` is the config option that
+// enables/disables it (all default ON). Add wind/rain/etc. here in future.
+const SENSORS = [
+  { key: 'outTemp',   name: 'Outdoor Temperature', kind: 'temp',     field: 'temp',      flag: 'enableOutdoorTemp' },
+  { key: 'outHum',    name: 'Outdoor Humidity',    kind: 'humidity', field: 'hum',       flag: 'enableOutdoorHumidity' },
+  { key: 'inTemp',    name: 'Indoor Temperature',  kind: 'temp',     field: 'temp_in',   flag: 'enableIndoorTemp' },
+  { key: 'inHum',     name: 'Indoor Humidity',     kind: 'humidity', field: 'hum_in',    flag: 'enableIndoorHumidity' },
+  { key: 'feelsLike', name: 'Feels Like (THW)',    kind: 'temp',     field: 'thw_index', flag: 'enableFeelsLike' },
+];
+
 let Service, Characteristic;
 
 module.exports = (api) => {
@@ -31,6 +43,12 @@ class WeatherLinkCloudPlatform {
 	this.model = config.model || 'Vantage Vue';
 
 	this.accessories = new Map(); // UUID -> cached accessory
+
+	// Which sensors are enabled. Each defaults to ON unless explicitly false.
+	this.enabled = {};
+	for (const s of SENSORS) {
+	  this.enabled[s.flag] = config[s.flag] !== false;
+	}
 
 	this.api.on('didFinishLaunching', async () => {
 	  try {
@@ -77,19 +95,27 @@ class WeatherLinkCloudPlatform {
   }
 
   setupAccessories() {
-	// Native HomeKit service types — these display cleanly in Apple's Home app.
-	this.tempAcc = this.getOrCreate('outTemp', 'Outdoor Temperature', Service.TemperatureSensor);
-	this.humAcc  = this.getOrCreate('outHum',  'Outdoor Humidity',    Service.HumiditySensor);
+	// Build the set of sensors the user has enabled, create each, and remember
+	// which accessories should exist this run.
+	this.activeSensors = SENSORS.filter((s) => this.enabled[s.flag]);
+	const desiredUuids = new Set();
 
-	// Indoor readings come from the console's own barometer/inside sensor block.
-	this.tempInAcc = this.getOrCreate('inTemp', 'Indoor Temperature', Service.TemperatureSensor);
-	this.humInAcc  = this.getOrCreate('inHum',  'Indoor Humidity',    Service.HumiditySensor);
+	for (const sensor of this.activeSensors) {
+	  const serviceType =
+		sensor.kind === 'temp' ? Service.TemperatureSensor : Service.HumiditySensor;
+	  sensor.accessory = this.getOrCreate(sensor.key, sensor.name, serviceType);
+	  desiredUuids.add(sensor.accessory.UUID);
+	}
 
-	// Wind / rain / pressure / UV have NO native HomeKit service.
-	// Options to surface them:
-	//   - Eve custom characteristics (shown in the Eve app, ignored by Home app)
-	//   - A LightSensor service repurposed to carry a raw number (a hack)
-	// Add those here once you've decided which approach you want.
+	// Remove any cached accessory that is no longer wanted (a sensor the user
+	// switched off, or one removed from the plugin) so its Home app tile goes away.
+	for (const [uuid, accessory] of this.accessories) {
+	  if (!desiredUuids.has(uuid)) {
+		this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+		this.accessories.delete(uuid);
+		this.log(`Removed disabled accessory: ${accessory.displayName}`);
+	  }
+	}
   }
 
   poll() {
@@ -170,51 +196,33 @@ class WeatherLinkCloudPlatform {
   }
 
   applyData(data) {
-	// The /current payload nests readings under sensors[].data[]. Each sensor
-	// block has a sensor_type and data_structure_type; you need to locate the
-	// ISS block for your Vantage Vue. The reliable way to learn the exact shape:
-	// log the whole payload ONCE, eyeball it, then pull the fields you need.
+	// The /current payload nests readings under sensors[].data[]. Field names
+	// (temp, hum, temp_in, hum_in, thw_index) are typical for a Vue but VERIFY
+	// them against your own payload. To see the exact shape, log it once:
 	//
-	//   this.log(JSON.stringify(data, null, 2));   // <- run this once, then delete
+	//   this.log(JSON.stringify(data, null, 2));   // <- run once, then remove
 	//
-	// Field names below (temp, hum) are typical for a Vue ISS but VERIFY them
-	// against your own dump — they live in °F and %.
-
-	const sensors = (data && data.sensors) || [];
-	let tempF, hum, tempInF, humIn;
-
-	for (const s of sensors) {
-	  const d = (s.data && s.data[0]) || {};
-	  if (typeof d.temp === 'number') tempF = d.temp;          // outdoor temp, °F
-	  if (typeof d.hum === 'number') hum = d.hum;              // outdoor RH, %
-	  if (typeof d.temp_in === 'number') tempInF = d.temp_in;  // indoor temp, °F
-	  if (typeof d.hum_in === 'number') humIn = d.hum_in;      // indoor RH, %
-	  // Other fields you'll likely find here once you dump the payload:
-	  //   d.wind_speed_last, d.wind_dir_last, d.rainfall_daily,
-	  //   d.bar_sea_level, d.uv_index, d.solar_rad ...
+	// We flatten every sensor block into one object, then read each enabled
+	// sensor's field from it. Values are °F / %.
+	const merged = {};
+	for (const s of (data && data.sensors) || []) {
+	  Object.assign(merged, (s.data && s.data[0]) || {});
 	}
 
-	if (typeof tempF === 'number') {
-	  const tempC = ((tempF - 32) * 5) / 9;
-	  this.tempAcc
-		.getService(Service.TemperatureSensor)
-		.updateCharacteristic(Characteristic.CurrentTemperature, tempC);
-	}
-	if (typeof hum === 'number') {
-	  this.humAcc
-		.getService(Service.HumiditySensor)
-		.updateCharacteristic(Characteristic.CurrentRelativeHumidity, hum);
-	}
-	if (typeof tempInF === 'number') {
-	  const tempInC = ((tempInF - 32) * 5) / 9;
-	  this.tempInAcc
-		.getService(Service.TemperatureSensor)
-		.updateCharacteristic(Characteristic.CurrentTemperature, tempInC);
-	}
-	if (typeof humIn === 'number') {
-	  this.humInAcc
-		.getService(Service.HumiditySensor)
-		.updateCharacteristic(Characteristic.CurrentRelativeHumidity, humIn);
+	for (const sensor of this.activeSensors) {
+	  const raw = merged[sensor.field];
+	  if (typeof raw !== 'number') continue;
+
+	  if (sensor.kind === 'temp') {
+		const tempC = ((raw - 32) * 5) / 9;
+		sensor.accessory
+		  .getService(Service.TemperatureSensor)
+		  .updateCharacteristic(Characteristic.CurrentTemperature, tempC);
+	  } else {
+		sensor.accessory
+		  .getService(Service.HumiditySensor)
+		  .updateCharacteristic(Characteristic.CurrentRelativeHumidity, raw);
+	  }
 	}
   }
 }
